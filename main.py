@@ -15,7 +15,34 @@ USERS_TABLE = """
     )
 """
 
+def create_user():
+    """ Create user"""
+    pass
+
+def list_users():
+    """ Fetch users' list """
+    pass
+
+def update_user():
+    """ Update one user by id """
+    pass
+
+def delete_user():
+    """ Delete one user """
+    pass
+
+def default():
+    print("Option no valid, please try again")
+
 if __name__ == '__main__':
+    
+    options = {
+        'a': create_user,
+        'b': list_users,
+        'c': update_user,
+        'd': delete_user
+    }
+    
     try:
         with psycopg2.connect(
             host=config("DB_HOST"),          
@@ -30,6 +57,24 @@ if __name__ == '__main__':
                 cursor.execute("SELECT version();")
                 version = cursor.fetchone()
                 print("Versión de PostgreSQL:", version)
+                
+                cursor.execute(DROP_TABLE_USERS)
+                cursor.execute(USERS_TABLE)
+                connection.commit()
+                
+                while True:
+                    for key, function in options.items():
+                        print(f"[{key}] {function.__doc__}") # Print function docstring
+                        
+                    print("type 'q' to quit")
+                    
+                    option = input("Pick and option: ").lower()
+                    if option == 'q':
+                        break
+                    
+                    function = options.get(option, default)
+                    function()
+                        
 
     except psycopg2.OperationalError as err:
         print("❌ No fue posible establcer la conexión con la base de datos")
