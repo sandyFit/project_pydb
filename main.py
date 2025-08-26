@@ -1,5 +1,7 @@
 import psycopg2
 from decouple import config
+import os
+from functools import wraps
 
 
 # SQL statement to drop the users table if it already exists
@@ -15,6 +17,30 @@ USERS_TABLE = """
     )
 """
 
+from functools import wraps
+
+def system_clear(function):
+    """
+    Decorator that clears the terminal before running
+    the wrapped function, and pauses for input afterward.
+    """
+    @wraps(function)  # keeps function name and docstring
+    def wrapper(connection, cursor):
+        """
+        Wrapper that clears the screen, runs the function,
+        then waits for user input before returning.
+        """
+        # Works on Linux/Mac (clear) and Windows (cls)
+        os.system("cls" if os.name == "nt" else "clear")
+        
+        function(connection, cursor)
+        
+        input("\nPress Enter to continue...")
+
+    return wrapper
+        
+        
+@system_clear
 def create_user(connection, cursor):
     """ Create user"""
     username = input("Enter your username: ")
@@ -27,8 +53,10 @@ def create_user(connection, cursor):
     cursor.execute(query, values)
     connection.commit()
     
-    print("User successfully created")
+    print(">>> User successfully created")
 
+
+@system_clear
 def list_users(connection, cursor):
     """ Fetch users' list """
     query = "SELECT id, username, email FROM users"
@@ -42,8 +70,6 @@ def list_users(connection, cursor):
     print("=========================================\n")   
     
     
-from functools import wraps
-
 def user_exists(function):
     """
     Decorator that checks if a user exists in the database
@@ -67,12 +93,12 @@ def user_exists(function):
         if user:
             return function(user_id, connection, cursor)
         else:
-            print(f"User with id {user_id} not found")
+            print(f">>> User with id {user_id} not found")
 
     return wrapper
 
 
-
+@system_clear
 @user_exists
 def update_user(user_id, connection, cursor):
     """ Update one user by id """
@@ -87,6 +113,7 @@ def update_user(user_id, connection, cursor):
     print(">>> User updated successfully!")
 
 
+@system_clear
 @user_exists
 def delete_user(user_id, connection, cursor):
     """ Delete one user """
