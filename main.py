@@ -15,23 +15,90 @@ USERS_TABLE = """
     )
 """
 
-def create_user():
+def create_user(connection, cursor):
     """ Create user"""
-    pass
+    username = input("Enter your username: ")
+    email = input("Enter your email address (e.g., john@doe.com): ")
+    password = input("Enter your password: ")
+    
+    query = "INSERT INTO users (username, email, password) VALUES(%s, %s, %s)"
+    values = (username, email, password)
+    
+    cursor.execute(query, values)
+    connection.commit()
+    
+    print("User successfully created")
 
-def list_users():
+def list_users(connection, cursor):
     """ Fetch users' list """
-    pass
+    query = "SELECT id, username, email FROM users"
+    cursor.execute(query)
+    
+    print("=============== Users List ===============\n")
+    for id, username, email in cursor.fetchall():
+        print(f"ID: {id}")
+        print(f"Username: {username}")
+        print(f"Email {email}\n")
+    print("=========================================\n")   
+    
+    
+from functools import wraps
 
-def update_user():
+def user_exists(function):
+    """
+    Decorator that checks if a user exists in the database
+    before executing the wrapped function.
+    
+    It prompts for a user ID, queries the database,
+    and only calls the wrapped function if the user exists.
+    Otherwise, it prints a 'not found' message.
+    """
+    @wraps(function)
+    def wrapper(connection, cursor):
+        """
+        Wrapper function around the decorated function.
+        Handles user ID input and existence check.
+        """
+        user_id = input("Enter your user's id: ")
+
+        cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
+        user = cursor.fetchone()
+
+        if user:
+            return function(user_id, connection, cursor)
+        else:
+            print(f"User with id {user_id} not found")
+
+    return wrapper
+
+
+
+@user_exists
+def update_user(user_id, connection, cursor):
     """ Update one user by id """
-    pass
+    username = input("Enter a new username: ")
+    email = input("Enter a new email address: ")
 
-def delete_user():
+    query = "UPDATE users SET username = %s, email = %s WHERE id = %s"
+    values = (username, email, user_id)
+    cursor.execute(query, values)
+
+    connection.commit()
+    print(">>> User updated successfully!")
+
+
+@user_exists
+def delete_user(user_id, connection, cursor):
     """ Delete one user """
-    pass
+    query = "DELETE FROM users WHERE id = %s"
+    cursor.execute(query, (user_id,))
+    
+    connection.commit()
+    print(">>> User deleted successfully!")
 
-def default():
+ 
+
+def default(*args):
     print("Option no valid, please try again")
 
 if __name__ == '__main__':
@@ -52,14 +119,16 @@ if __name__ == '__main__':
             database=config("DB_POSTGRES")
         ) as connection:
             print("✅ Conexión establecida")
+            print("Connected to:", connection.get_dsn_parameters()["dbname"])
+            print("As user:", connection.get_dsn_parameters()["user"])
 
             with connection.cursor() as cursor:
                 cursor.execute("SELECT version();")
                 version = cursor.fetchone()
                 print("Versión de PostgreSQL:", version)
                 
-                cursor.execute(DROP_TABLE_USERS)
-                cursor.execute(USERS_TABLE)
+                # cursor.execute(DROP_TABLE_USERS)
+                # cursor.execute(USERS_TABLE)
                 connection.commit()
                 
                 while True:
@@ -73,7 +142,7 @@ if __name__ == '__main__':
                         break
                     
                     function = options.get(option, default)
-                    function()
+                    function(connection, cursor)
                         
 
     except psycopg2.OperationalError as err:
